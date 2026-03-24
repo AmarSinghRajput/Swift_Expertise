@@ -1,0 +1,302 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+.filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;}
+.filter-btn{padding:5px 12px;font-size:12px;border-radius:16px;border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);cursor:pointer;transition:all .15s;}
+.filter-btn.on{font-weight:500;}
+.filter-btn[data-cat="all"].on{background:var(--color-background-secondary);color:var(--color-text-primary);border-color:var(--color-border-primary);}
+.filter-btn[data-cat="concepts"].on{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);}
+.filter-btn[data-cat="traps"].on{background:var(--color-background-danger);color:var(--color-text-danger);border-color:var(--color-border-danger);}
+.filter-btn[data-cat="scenarios"].on{background:var(--color-background-warning);color:var(--color-text-warning);border-color:var(--color-border-warning);}
+.filter-btn[data-cat="advanced"].on{background:var(--color-background-success);color:var(--color-text-success);border-color:var(--color-border-success);}
+.stats{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+.stat{background:var(--color-background-secondary);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--color-text-secondary);}
+.stat span{font-weight:500;font-size:15px;color:var(--color-text-primary);display:block;}
+.q-list{display:flex;flex-direction:column;gap:10px;}
+.q-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;overflow:hidden;transition:border-color .15s;}
+.q-card:hover{border-color:var(--color-border-secondary);}
+.q-head{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;cursor:pointer;user-select:none;}
+.q-num{font-size:11px;font-weight:500;color:var(--color-text-tertiary);min-width:22px;padding-top:2px;}
+.q-text{font-size:13px;color:var(--color-text-primary);line-height:1.5;flex:1;}
+.q-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.diff{font-size:10px;font-weight:500;padding:2px 7px;border-radius:8px;}
+.diff-e{background:var(--color-background-success);color:var(--color-text-success);}
+.diff-m{background:var(--color-background-warning);color:var(--color-text-warning);}
+.diff-h{background:var(--color-background-danger);color:var(--color-text-danger);}
+.cat-pip{width:3px;align-self:stretch;border-radius:2px 0 0 2px;flex-shrink:0;}
+.cat-pip-concepts{background:var(--color-border-info);}
+.cat-pip-traps{background:var(--color-border-danger);}
+.cat-pip-scenarios{background:var(--color-border-warning);}
+.cat-pip-advanced{background:var(--color-border-success);}
+.chevron{font-size:12px;color:var(--color-text-tertiary);transition:transform .2s;}
+.chevron.open{transform:rotate(180deg);}
+.q-body{display:none;padding:0 14px 14px 14px;border-top:0.5px solid var(--color-border-tertiary);margin-top:0;}
+.q-body.open{display:block;}
+.answer-label{font-size:10px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 6px;}
+.answer-text{font-size:13px;color:var(--color-text-secondary);line-height:1.6;}
+.trap-box{background:var(--color-background-danger);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:12px;color:var(--color-text-danger);border-left:3px solid var(--color-border-danger);border-radius:0 6px 6px 0;}
+.good-box{background:var(--color-background-success);border-radius:0 6px 6px 0;padding:8px 12px;margin-top:6px;font-size:12px;color:var(--color-text-success);border-left:3px solid var(--color-border-success);}
+code{font-family:var(--font-mono);font-size:11px;background:var(--color-background-tertiary);padding:1px 4px;border-radius:3px;color:var(--color-text-primary);}
+.hidden{display:none !important;}
+.count-badge{font-size:11px;background:var(--color-background-secondary);color:var(--color-text-secondary);border-radius:10px;padding:1px 6px;margin-left:4px;}
+</style>
+
+<div style="padding:16px 0 4px;">
+  <div class="stats" id="stats"></div>
+  <div class="filter-bar">
+    <button class="filter-btn on" data-cat="all" onclick="filter('all',this)">All <span class="count-badge" id="cnt-all"></span></button>
+    <button class="filter-btn" data-cat="concepts" onclick="filter('concepts',this)">Core concepts <span class="count-badge" id="cnt-concepts"></span></button>
+    <button class="filter-btn" data-cat="traps" onclick="filter('traps',this)">Classic traps <span class="count-badge" id="cnt-traps"></span></button>
+    <button class="filter-btn" data-cat="scenarios" onclick="filter('scenarios',this)">Scenario-based <span class="count-badge" id="cnt-scenarios"></span></button>
+    <button class="filter-btn" data-cat="advanced" onclick="filter('advanced',this)">Advanced <span class="count-badge" id="cnt-advanced"></span></button>
+  </div>
+  <div class="q-list" id="qlist"></div>
+</div>
+
+<script>
+const QS = [
+  {
+    cat:'traps', diff:'h',
+    q:'You add a new target to your package and try to import it in another package, but get "no such module". The target has source files and compiles fine. What\'s wrong?',
+    a:'The target is not listed in a <code>products</code> entry. A target not included in any product is completely invisible to outside consumers — even if it compiles successfully. This is the single most common SPM mistake.',
+    trap:'Candidates immediately blame the import path, spelling, or swift-tools-version instead of checking the products array.',
+    good:'Check <code>products:</code> in Package.swift — add <code>.library(name: "...", targets: ["TargetName"])</code>.'
+  },
+  {
+    cat:'traps', diff:'h',
+    q:'What is the difference between adding a package to the top-level <code>dependencies:</code> array and adding it to a target\'s <code>dependencies:</code> array? Can you skip either one?',
+    a:'Both steps are mandatory and serve different purposes. The top-level <code>dependencies</code> tells SPM where to fetch the package from. The target-level <code>dependencies</code> tells the compiler which modules to link into that specific target. Skipping the top-level declaration causes a resolution error. Skipping the target-level wiring means the module is fetched but cannot be imported — it simply won\'t be linked.',
+    trap:'Most candidates say "you can just add it at the target level" — you cannot. Both declarations are required.',
+    good:'Always do both: declare at package level with a URL/path, then reference the specific <code>.product(name:package:)</code> inside the target.'
+  },
+  {
+    cat:'concepts', diff:'e',
+    q:'What is the difference between a target and a product in SPM?',
+    a:'A target is an internal compilation unit — a module with source files. A product is what you expose to the outside world. Multiple targets can be bundled into one product. A target with no corresponding product entry is a private implementation detail that no external consumer can import.',
+    trap:'Candidates conflate the two and say "they\'re the same thing, just different names".',
+    good:'"Target = code, Product = exposed API. A target not in products is invisible to dependents."'
+  },
+  {
+    cat:'traps', diff:'m',
+    q:'You add a resource file to a package target, but at runtime <code>Bundle.main.url(forResource:withExtension:)</code> returns nil. The file is clearly in the Sources folder. What\'s happening?',
+    a:'Package targets must use <code>Bundle.module</code>, not <code>Bundle.main</code>. SPM generates a separate resource bundle per target and <code>Bundle.module</code> is the auto-generated accessor for it. <code>Bundle.main</code> points to the host app\'s bundle, which knows nothing about the package\'s resources.',
+    trap:'Candidates check the file name, extension, case sensitivity — everything except the Bundle accessor.',
+    good:'Replace <code>Bundle.main</code> with <code>Bundle.module</code> everywhere in the package target.'
+  },
+  {
+    cat:'traps', diff:'h',
+    q:'A colleague says "I added Package.resolved to .gitignore to keep the repo clean — generated files shouldn\'t be committed." Is this correct? When would it be wrong?',
+    a:'It is wrong for apps and executables. Without a committed lock file, every clone and every CI run resolves dependencies fresh — and can pick different patch versions if new releases have shipped between clones. A regression in a transitive dependency at 2am will break CI but not the developer\'s machine that has a cached older version. It is only acceptable for reusable libraries, where consumers must resolve their own graph.',
+    trap:'Candidates agree with the colleague, calling it "a generated file like build artifacts".',
+    good:'Package.resolved should be committed for apps. It is the difference between reproducible and non-reproducible builds.'
+  },
+  {
+    cat:'scenarios', diff:'m',
+    q:'Your package uses Alamofire 5.8. A new dependency you want to add, NetworkKit, requires Alamofire 5.4 with <code>.exact("5.4.0")</code>. SPM refuses to build. Walk through how you\'d diagnose and fix this.',
+    a:'This is a diamond dependency conflict. Run <code>swift package show-dependencies</code> to see the full constraint graph. The fix options in order of preference: (1) check if NetworkKit has a newer version that relaxed its Alamofire constraint — update NetworkKit; (2) relax your own Alamofire constraint down to 5.4.0 if you don\'t actually need 5.8 features; (3) fork NetworkKit and bump its constraint yourself as a last resort.',
+    trap:'Candidates jump to "just pin everything to .exact" — which makes the problem worse.',
+    good:'Always run <code>show-dependencies</code> first, then fix the narrowest constraint in the graph.'
+  },
+  {
+    cat:'advanced', diff:'h',
+    q:'What does the <code>originHash</code> field in Package.resolved do? What happens if it doesn\'t match?',
+    a:'The <code>originHash</code> is a hash of the entire resolved dependency graph. SPM computes it from the current Package.swift and compares it against what\'s stored in Package.resolved. If they don\'t match, SPM treats the lock file as stale and re-resolves from scratch, overwriting Package.resolved. This prevents the two files from silently drifting out of sync.',
+    trap:'Most candidates have never heard of originHash and guess it is a security checksum for downloaded packages.',
+    good:'originHash = graph fingerprint. Mismatch = SPM ignores the lock file and re-resolves.'
+  },
+  {
+    cat:'concepts', diff:'m',
+    q:'What is the difference between <code>.process("Resources")</code> and <code>.copy("Resources")</code> for package resources?',
+    a:'<code>.process</code> runs platform-specific optimisations — images get compressed, asset catalogs compiled, Core Data models pre-compiled, storyboards validated. <code>.copy</code> copies files exactly as-is, preserving directory structure, with no processing. Use <code>.process</code> for assets; use <code>.copy</code> for raw files like JSON, fonts, or configuration files where you need the exact bytes.',
+    trap:'Candidates say "they\'re the same, just different performance" or reverse which one processes.',
+    good:'"Process = optimised/compiled for platform. Copy = raw bytes preserved."'
+  },
+  {
+    cat:'traps', diff:'m',
+    q:'You have a package with <code>platforms: [.iOS(.v16)]</code>. A dependency you want to add declares <code>platforms: [.iOS(.v17)]</code>. What does SPM do?',
+    a:'SPM emits a build error. Every dependency must support a deployment target equal to or lower than the package that depends on it. A dependency that requires iOS 17 cannot be used by a package targeting iOS 16 — it would silently crash on iOS 16 devices. SPM enforces this at resolution time, not at runtime.',
+    trap:'Candidates say "it just shows a warning" or "it compiles but might crash".',
+    good:'SPM rejects the dependency at resolution with an explicit error. You must either raise your minimum to iOS 17 or find a different dependency.'
+  },
+  {
+    cat:'advanced', diff:'h',
+    q:'Explain the difference between a build tool plugin and a command plugin. Give a concrete use case for each.',
+    a:'A build tool plugin participates in the build graph — it runs automatically during compilation and can generate source files or resources that are consumed by the build (SwiftGen generating type-safe accessors from assets, protobuf generating Swift files from .proto files). A command plugin is invoked manually via <code>swift package &lt;verb&gt;</code> or right-click in Xcode — it runs outside the build and is used for tasks like archiving a Lambda function, running a formatter, or generating documentation.',
+    trap:'Candidates say "plugins just run scripts" without distinguishing build-time vs on-demand execution.',
+    good:'Build tool plugin = participates in compilation. Command plugin = explicit invocation by developer.'
+  },
+  {
+    cat:'scenarios', diff:'h',
+    q:'Target A depends on Target B. Target B now needs to use a type defined in Target A. A colleague adds A to B\'s dependencies to solve it. What goes wrong and how do you fix it?',
+    a:'This creates a circular dependency — A depends on B, B depends on A. SPM enforces a directed acyclic graph and will refuse to build with "cyclic dependency" error. The fix is to extract the shared type into a third Target C that has no dependencies of its own. Both A and B then depend on C. The shared type lives in C; neither A nor B need to know about each other.',
+    trap:'Candidates suggest using <code>@testable</code> import, dynamic dispatch, or protocol-based workarounds — none of which solve the graph cycle.',
+    good:'A ↔ B is invalid. Extract shared code into C: A → C ← B.'
+  },
+  {
+    cat:'concepts', diff:'e',
+    q:'What does <code>from: "5.6.0"</code> actually resolve to? What versions are allowed?',
+    a:'<code>from: "5.6.0"</code> is shorthand for <code>.upToNextMajor(from: "5.6.0")</code>, which resolves any version from 5.6.0 up to but not including 6.0.0. It allows all patch (5.6.x) and minor (5.7.x, 5.8.x) releases, but blocks major version bumps (6.0.0+) which are assumed to contain breaking changes.',
+    trap:'Candidates say "it just means 5.6.0 or higher" without mentioning the major version ceiling.',
+    good:'"5.6.0 up to but not including 6.0.0 — patches and minors are allowed, major bumps are blocked."'
+  },
+  {
+    cat:'traps', diff:'h',
+    q:'You run <code>swift package update</code> on a project. What exactly does it change? What does it NOT change?',
+    a:'It deliberately ignores the current Package.resolved, re-resolves all dependencies from the internet using the version constraints in Package.swift, and overwrites Package.resolved with the new resolution. It does NOT change Package.swift — your version constraints remain the same. It only updates the exact pinned versions within those constraints to the latest available that satisfy them.',
+    trap:'Candidates say "it updates Package.swift too" or "it upgrades to the latest major version".',
+    good:'update rewrites Package.resolved within existing Package.swift constraints. It cannot violate your declared ranges.'
+  },
+  {
+    cat:'scenarios', diff:'m',
+    q:'Your team has a shared DesignSystem package. The iOS app imports <code>DesignSystem</code> (full UI). A separate watchOS complication app only needs color tokens — no SwiftUI views. How do you structure the package to serve both consumers efficiently?',
+    a:'Expose two separate products from the same package: <code>.library(name: "DesignSystem", targets: ["Components"])</code> for the full UI, and <code>.library(name: "DesignTokens", targets: ["Tokens"])</code> for tokens only. The <code>Tokens</code> target has no SwiftUI dependency. The watchOS app imports only <code>DesignTokens</code> — it never pays the cost of compiling SwiftUI components. The iOS app imports <code>DesignSystem</code> which transitively includes Tokens.',
+    trap:'Candidates create two separate packages, or put everything in one target and say "the compiler will tree-shake it".',
+    good:'One package, two products, separate targets. The lightweight consumer only links what it imports.'
+  },
+  {
+    cat:'advanced', diff:'h',
+    q:'What is a binary target\'s checksum used for? What happens if you provide the wrong one? Why is the SHA in Package.resolved more security-relevant than the version tag?',
+    a:'The checksum (SHA-256) in a <code>.binaryTarget</code> declaration verifies the integrity of the downloaded zip after fetching. SPM computes the hash of the downloaded file and rejects it if it doesn\'t match — preventing supply-chain attacks where someone replaces the binary at the URL. The SHA in Package.resolved is more trustworthy than the version tag because Git tags are mutable — a maintainer can force-push a tag to a different commit. The SHA is immutable; once a commit exists it cannot be changed.',
+    trap:'Candidates say "the checksum is just for caching" or don\'t know the difference between the binary checksum and the resolved SHA.',
+    good:'Binary checksum = integrity of the downloaded artifact. Resolved SHA = exact immutable point in git history.'
+  },
+  {
+    cat:'concepts', diff:'m',
+    q:'Can you have a Swift package without any products? What would that be useful for?',
+    a:'Yes. A package with no products is a closed, internal package — its targets cannot be imported by any external package. This is useful for an app\'s own modular codebase where you want SPM\'s build system and test runner but all the code is private to the app. You get clean target boundaries, incremental builds, and isolated tests without publishing any public API.',
+    trap:'Candidates say "no, products are required" or "that would be an invalid Package.swift".',
+    good:'"Products are optional. A product-less package is fully private — its targets exist only for internal build organisation."'
+  },
+  {
+    cat:'scenarios', diff:'h',
+    q:'You run <code>swift build</code> after cloning a repo and it fails saying it cannot resolve a dependency even though Package.resolved is committed. What are the likely causes?',
+    a:'Several possible causes: (1) the pinned Git revision in Package.resolved no longer exists because a tag was force-pushed or the repository was rewritten; (2) the repository URL changed (org rename, migration); (3) the package cache is corrupt — run <code>swift package purge-cache</code>; (4) network/auth issue with a private repo; (5) Package.resolved was committed from a different swift-tools-version and is now incompatible. The first diagnostic step is <code>swift package reset</code> then <code>swift package resolve</code> to see the exact error.',
+    trap:'Candidates only think of "delete derived data" or "update Xcode" — the macOS developer reflex.',
+    good:'"Start with <code>swift package reset && swift package resolve</code> to get a clean error message, then trace the specific failure."'
+  },
+  {
+    cat:'advanced', diff:'h',
+    q:'What is the difference between <code>.library(type: .static)</code>, <code>.library(type: .dynamic)</code>, and omitting the type entirely (<code>.library(name:targets:)</code>)?',
+    a:'Static linking copies the library\'s code directly into the app binary at link time — one binary, no runtime dependency, larger executable. Dynamic linking produces a separate <code>.dylib</code> that is loaded at runtime — smaller executable, code can be shared across processes, but requires the dylib to be present. Omitting the type (automatic) lets Xcode and the build system decide based on context — typically static for frameworks embedded in an app. Automatic is almost always the right choice unless you have a specific reason (e.g., a plugin that must be dynamically loaded, or an extension sharing a framework with the host app to reduce binary size).',
+    trap:'Candidates say "dynamic is always better because hot-reloading" or can\'t explain what automatic does.',
+    good:'"Use automatic. Static = code merged into binary. Dynamic = separate .dylib loaded at runtime."'
+  },
+  {
+    cat:'scenarios', diff:'m',
+    q:'You want to use a third-party library on iOS but not on Linux (where you\'re also building a server-side target). How do you conditionally include it?',
+    a:'Use <code>.when(platforms:)</code> in the target\'s dependencies array: <code>.product(name: "UIKit-only-lib", package: "lib", condition: .when(platforms: [.iOS]))</code>. In source files, guard with <code>#if canImport(UIKit)</code> or <code>#if os(iOS)</code>. The platform condition at the manifest level prevents SPM from even fetching or linking the dependency on other platforms.',
+    trap:'Candidates use only <code>#if</code> in source but forget the manifest-level condition — the package still gets fetched and linked on Linux.',
+    good:'Two-step: <code>.when(platforms:)</code> in the target dependency, plus <code>#if canImport</code> or <code>#if os()</code> in source.'
+  },
+  {
+    cat:'traps', diff:'m',
+    q:'A developer edits Package.resolved directly to pin a dependency to a specific version they tested. Is this a valid approach?',
+    a:'No. Package.resolved should never be edited by hand. The <code>originHash</code> field is computed from the entire dependency graph — manually edited entries will cause a hash mismatch, and SPM will discard the entire file and re-resolve from scratch on the next build, overwriting your manual edit. The correct approach is to use version constraints in Package.swift (e.g., <code>.exact("x.y.z")</code>) or run <code>swift package update SpecificPackage</code> to update just that pin.',
+    trap:'Candidates say "yes, it\'s just JSON, it\'s fine to edit it".',
+    good:'"Never edit Package.resolved by hand. Use Package.swift constraints and <code>swift package update</code>."'
+  },
+  {
+    cat:'advanced', diff:'h',
+    q:'What is a version-specific manifest file like <code>Package@swift-5.9.swift</code>? When would you use one?',
+    a:'SPM allows you to ship multiple manifest files named <code>Package@swift-X.Y.swift</code>. When building, SPM picks the most specific manifest whose version matches or is lower than the installed toolchain. This lets you take advantage of new SPM features (new target types, new APIs) on newer toolchains while maintaining compatibility on older ones without dropping support. Common use: adding plugin support or visionOS targets in 5.9+ manifests while keeping the base Package.swift compatible with 5.7.',
+    trap:'Candidates confuse this with the <code>// swift-tools-version:</code> comment, which serves a different purpose.',
+    good:'"Version-specific manifests let you opt into new SPM features on new toolchains without breaking old ones."'
+  },
+  {
+    cat:'concepts', diff:'e',
+    q:'What is the purpose of the <code>// swift-tools-version: 5.9</code> comment at the top of Package.swift?',
+    a:'It tells SPM which version of the Package Description API the manifest uses. SPM reads this to determine what manifest features are available (new target types, new APIs, new parameters). It must be the very first line. It is not merely informational — SPM uses it to select the correct manifest parser. Setting it too low means you can\'t use newer SPM features. Setting it too high means older toolchains can\'t build your package at all.',
+    trap:'Candidates say "it\'s just a comment, it\'s informational" — it is machine-read and load-bearing.',
+    good:'"It\'s a directive, not a comment. SPM reads it to pick the right Package Description API version."'
+  },
+  {
+    cat:'scenarios', diff:'h',
+    q:'Two different packages in your dependency graph both declare a dependency on the same library but from different GitHub URLs — one uses HTTPS, one uses SSH (<code>git@github.com:…</code>). SPM treats them as two separate packages. How do you fix this?',
+    a:'SPM uses the URL (or path) as the canonical identity of a package — different URLs = different packages, even if they point to the same repository. You must standardise on one URL across all packages in your graph. The fix is either: (1) fork one of the conflicting packages and update its dependency to use the same URL form you use, or (2) use a local override with <code>.package(path:)</code> during development. The underlying lesson: your package\'s transitive dependencies must all agree on a single canonical URL for each shared dependency.',
+    trap:'Candidates think SPM is smart enough to detect they point to the same repo.',
+    good:'"URL is identity in SPM. HTTPS and SSH of the same repo are two different packages to the resolver."'
+  },
+  {
+    cat:'advanced', diff:'h',
+    q:'Your binary target\'s XCFramework works on a real iPhone but fails to build for the iOS Simulator on an M1 Mac. What is likely happening?',
+    a:'The XCFramework is missing the <code>ios-arm64-simulator</code> slice. On Apple Silicon Macs, the iOS Simulator runs as native arm64 — but a fat binary that only has <code>ios-arm64</code> (device) and <code>ios-x86_64-simulator</code> slices will fail because there is now a naming collision: arm64 appears twice but for different environments. The XCFramework format solves this by using separate directories per platform/SDK — but the SDK vendor must have built with a modern toolchain that explicitly includes the arm64 Simulator slice as a distinct entry.',
+    trap:'Candidates say "add arm64 to the architectures list in Xcode" — this doesn\'t fix the underlying XCFramework structure.',
+    good:'"The XCFramework lacks an ios-arm64-simulator slice. Ask the SDK vendor for an updated build, or build it yourself with the full set of slices."'
+  },
+  {
+    cat:'traps', diff:'m',
+    q:'What happens if you declare a target in the <code>targets:</code> array but there is no corresponding folder in <code>Sources/</code>?',
+    a:'SPM emits a build error: "no targets found at expected path". SPM uses convention — by default it expects source files in <code>Sources/TargetName/</code>. If that folder doesn\'t exist and no explicit <code>path:</code> parameter is provided in the target declaration, resolution fails. You can override this with <code>.target(name: "X", path: "CustomPath")</code> but the folder at that path must actually exist and contain at least one source file.',
+    trap:'Candidates say "it creates an empty target" or "it just warns".',
+    good:'"Missing Sources folder = build error unless you provide an explicit path: parameter."'
+  },
+  {
+    cat:'scenarios', diff:'m',
+    q:'Your app has a test target for <code>NetworkingTests</code>. A junior developer says there\'s no point running <code>swift test</code> because "tests run in Xcode anyway". What\'s wrong with this reasoning in the context of CI?',
+    a:'<code>swift test</code> is the only way to run SPM tests headlessly in CI without a full Xcode GUI. It runs on Linux too, which is important for server-side Swift packages. Relying solely on Xcode means tests can only run on a macOS machine with Xcode installed — it excludes Linux CI runners, Docker environments, and automation pipelines. <code>swift test</code> also surfaces Package.swift issues earlier, before Xcode project generation.',
+    trap:'Candidates agree with the junior developer or say "use xcodebuild instead".',
+    good:'"swift test is the headless, cross-platform, CI-friendly test runner. Xcode is a UI wrapper around the same thing."'
+  },
+];
+
+function render(cat='all') {
+  const list = document.getElementById('qlist');
+  const visible = cat === 'all' ? QS : QS.filter(q => q.cat === cat);
+  list.innerHTML = '';
+  visible.forEach((q, i) => {
+    const idx = QS.indexOf(q) + 1;
+    const card = document.createElement('div');
+    card.className = 'q-card';
+    card.innerHTML = `
+      <div class="q-head" onclick="toggle(this)">
+        <div class="cat-pip cat-pip-${q.cat}"></div>
+        <span class="q-num">Q${idx}</span>
+        <span class="q-text">${q.q}</span>
+        <div class="q-right">
+          <span class="diff diff-${q.diff[0]}">${q.diff==='e'?'Easy':q.diff==='m'?'Medium':'Hard'}</span>
+          <span class="chevron">▾</span>
+        </div>
+      </div>
+      <div class="q-body">
+        <div class="answer-label">Expected answer</div>
+        <div class="answer-text">${q.a}</div>
+        <div class="trap-box">Trap: ${q.trap}</div>
+        <div class="good-box">Good answer signals: ${q.good}</div>
+      </div>`;
+    list.appendChild(card);
+  });
+  updateStats();
+}
+
+function toggle(head) {
+  const body = head.nextElementSibling;
+  const chev = head.querySelector('.chevron');
+  const open = body.classList.toggle('open');
+  chev.classList.toggle('open', open);
+}
+
+function filter(cat, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  render(cat);
+}
+
+function updateStats() {
+  const cats = ['concepts','traps','scenarios','advanced'];
+  const total = QS.length;
+  const hard = QS.filter(q=>q.diff==='h').length;
+  const med = QS.filter(q=>q.diff==='m').length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><span>${total}</span>questions total</div>
+    <div class="stat"><span>${hard}</span>hard</div>
+    <div class="stat"><span>${med}</span>medium</div>
+    <div class="stat"><span>${QS.filter(q=>q.diff==='e').length}</span>easy</div>`;
+  document.getElementById('cnt-all').textContent = total;
+  cats.forEach(c => {
+    const el = document.getElementById('cnt-'+c);
+    if(el) el.textContent = QS.filter(q=>q.cat===c).length;
+  });
+}
+
+render();
+</script>
